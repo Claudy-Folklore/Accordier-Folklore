@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Accordier – Folklore</title>
+<style>
+:root{font-family:system-ui,sans-serif;background:#101b2b;color:#f8fafc;color-scheme:dark}
+*{box-sizing:border-box}body{max-width:650px;margin:auto;padding:15px}h1{font-size:24px;margin:10px 0}p,small{color:#bac7d5}
+button,input,select,textarea{font:inherit}button{cursor:pointer;border:1px solid #617084;background:#29384e;color:white;border-radius:11px;padding:10px}
+button.primary{background:#087e71;border:0;font-weight:700;padding:15px}button.full{width:100%}
+input,select,textarea{background:#1a293c;border:1px solid #607084;color:white;border-radius:9px;padding:11px;min-width:0;width:100%}
+label{display:block;font-size:12px;color:#c1cfda;margin-bottom:5px}
+.card{background:#202e43;border:1px solid #3b4c63;border-radius:15px;padding:14px;margin:12px 0}
+.row{display:flex;align-items:center;justify-content:space-between;gap:9px}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.song{width:100%;text-align:left;display:flex;justify-content:space-between;gap:8px;margin:5px 0}
+.song span:last-child{white-space:nowrap;color:#92e4d0}
+.muted{color:#aebfd0}.hidden{display:none}.tag{font-size:13px;color:#92e4d0}
+h3{margin:12px 0}.actions{display:flex;gap:8px}.actions button{flex:1}
+textarea{min-height:90px;resize:vertical}.toggle{display:flex;align-items:center;gap:9px;margin:12px 0}.toggle input{width:auto}
+</style></head><body>
+<h1>🎸 Accordier – Folklore</h1><p>Mes chansons du jour de l'An</p>
+<div id="listview">
+<input id="search" placeholder="🔎 Chercher une chanson">
+<div id="songs"></div>
+<button class="primary full" id="add">＋ Ajouter une chanson</button>
+</div>
+<div id="detail" class="hidden">
+<button id="back">← Mon répertoire</button>
+<div class="card">
+<label>Titre de la chanson</label><input id="title">
+<div class="grid" style="margin-top:12px">
+<div><label>Accord</label><select id="chord"></select></div>
+<div><label>Capot</label><select id="capo"></select></div>
+<div><label>Réel</label><div id="real" style="padding:12px;font-weight:bold"></div></div>
+</div>
+<button class="primary full" id="play" style="margin-top:14px">▶ Écouter l'accord</button>
+<div style="margin-top:12px"><label>🔊 Volume</label><input id="volume" type="range" min="0" max="100" value="85"></div>
+<label class="toggle"><input type="checkbox" id="hes"> J'hésite entre deux tonalités</label>
+<div id="alternate" class="hidden">
+<div class="grid">
+<div><label>Accord 2</label><select id="chord2"></select></div>
+<div><label>Capot 2</label><select id="capo2"></select></div>
+<div><label>Réel</label><div id="real2" style="padding:12px;font-weight:bold"></div></div>
+</div><button class="full" id="play2" style="margin-top:9px">▶ Écouter l'option 2</button>
+</div>
+<label class="toggle"><input type="checkbox" id="obs"> Ajouter une observation</label>
+<div id="observations" class="hidden"><textarea id="note" placeholder="Ma voix, ma nervosité, mon confort, mes essais…"></textarea></div>
+<div class="actions" style="margin-top:14px"><button id="save" class="primary">✓ Enregistrer</button><button id="remove">Supprimer</button></div>
+<div id="status" class="muted" style="margin-top:10px;font-size:12px"></div>
+</div></div>
+<div class="card"><small>Les changements sont enregistrés dans ce navigateur sur cet appareil. Évite d'effacer les données du site. Utilise la sauvegarde pour conserver une copie.</small><div class="actions" style="margin-top:10px"><button id="backup">Sauvegarder</button><button id="restore">Restaurer</button></div><input id="restoreFile" type="file" accept=".json,application/json" class="hidden"></div>
+<script>
+(function(){
+const seed=[
+["Le cotillon","D",5],["La chose véritable – Germaine","G",5],["Non, j'irai pu","G",3],["Mon père, mariez-moi donc","C",2],["Nous sommes ici, restons-y donc","G",4],["Belle rose du printemps","G",2],["Le vent du nord – Vive l'amour","C",0],["Un dimanche au matin","G",7],["Le pommier d'amour","Am",3],["Mon père m'y marie","G",5],["Ti-Guy Côté (le cocu)","C",4],["Les coucous",null,null],["Galant tu perds ton temps – Pour se marier","C",0],["Galant tu perds ton temps – Laissez-moi faire","C",0],["Gai Faluron Dondaine","G",5],["Le petit moine du cap Nord",null,null],["Le moine Simon","Am",3],["La p'tite fleur bleue",null,null],["Dans le temps que j'allais voir Rose","G",5],["Dans la ville de Paris – Les Charbonniers","G",2],["La petite Rosalie","G",3],["Ma Louise – Le Vent du Nord","C",2]
+];
+const key='folklore-repertoire-v1';
+let songs;try{songs=JSON.parse(localStorage.getItem(key))}catch(e){}
+if(!Array.isArray(songs))songs=seed.map(x=>({title:x[0],chord:x[1]||'',capo:x[2]===null?'':String(x[2]),hes:false,chord2:'',capo2:'',obs:false,note:''}));
+const shapes={C:[null,3,2,0,1,0],D:[null,null,0,2,3,2],E:[0,2,2,1,0,0],Em:[0,2,2,0,0,0],F:[1,3,3,2,1,1],G:[3,2,0,0,0,3],A:[null,0,2,2,2,0],Am:[null,0,2,2,1,0],B:[null,2,4,4,4,2]};
+const roots={C:0,D:2,E:4,Em:4,F:5,G:7,A:9,Am:9,B:11},chrom=['C','C#','D','Eb','E','F','F#','G','Ab','A','Bb','B'];
+const $=id=>document.getElementById(id);let current=-1,ctx=null,volume=85;
+function real(c,n){return c&&n!==''&&n!==null&&n!==undefined?chrom[(roots[c]+Number(n))%12]+(c.endsWith('m')?'m':''):'—'}
+function persist(){try{localStorage.setItem(key,JSON.stringify(songs));return true}catch(e){alert('Enregistrement impossible. Fais une sauvegarde.');return false}}
+function options(id,vals){$(id).innerHTML='<option value="">—</option>'+vals.map(v=>'<option value="'+v+'">'+v+'</option>').join('')}
+['chord','chord2'].forEach(id=>options(id,Object.keys(shapes)));
+['capo','capo2'].forEach(id=>options(id,[0,1,2,3,4,5,6,7]));
+function render(){
+const q=$('search').value.toLocaleLowerCase();
+$('songs').innerHTML='';
+songs.forEach((s,i)=>{if(!s.title.toLocaleLowerCase().includes(q))return;
+const b=document.createElement('button');b.className='song';const name=document.createElement('span');name.textContent=s.title;const value=document.createElement('span');value.textContent=s.chord?s.chord+' · Capot '+s.capo+' = '+real(s.chord,s.capo):'À compléter';b.append(name,value);b.onclick=()=>open(i);$('songs').append(b)});
+}
+function showList(){$('detail').classList.add('hidden');$('listview').classList.remove('hidden');render()}
+function open(i){current=i;const s=songs[i];$('listview').classList.add('hidden');$('detail').classList.remove('hidden');
+['title','chord','capo','chord2','capo2','note'].forEach(id=>$(id).value=s[id]??'');
+$('hes').checked=!!s.hes;$('obs').checked=!!s.obs;refresh();$('status').textContent=''}
+function refresh(){
+$('real').textContent=real($('chord').value,$('capo').value);$('real2').textContent=real($('chord2').value,$('capo2').value);
+$('alternate').classList.toggle('hidden',!$('hes').checked);$('observations').classList.toggle('hidden',!$('obs').checked)
+}
+['chord','capo','chord2','capo2','hes','obs'].forEach(id=>$(id).addEventListener('change',refresh));
+function save(){if(!$('title').value.trim()){alert('Inscris un titre.');return false}
+const s=songs[current];['title','chord','capo','chord2','capo2','note'].forEach(id=>s[id]=$(id).value);
+s.hes=$('hes').checked;s.obs=$('obs').checked;persist();return true}
+$('save').onclick=()=>{if(save())showList()};
+$('back').onclick=()=>{if(save())showList()};
+$('add').onclick=()=>{songs.push({title:'Nouvelle chanson',chord:'',capo:'',chord2:'',capo2:'',hes:false,obs:false,note:''});persist();open(songs.length-1)};
+$('remove').onclick=()=>{if(confirm('Supprimer cette chanson ?')){songs.splice(current,1);persist();showList()}};
+$('search').oninput=render;$('volume').oninput=e=>volume=Number(e.target.value);
+function play(second){
+const chord=$(second?'chord2':'chord').value,capo=$(second?'capo2':'capo').value;
+if(!chord||capo===''){alert('Choisis un accord et un capot.');return}
+try{
+const AC=window.AudioContext||window.webkitAudioContext;if(!AC)throw Error('audio');
+if(!ctx)ctx=new AC();ctx.resume();
+const notes=shapes[chord].map((f,i)=>f===null?null:[40,45,50,55,59,64][i]+f+Number(capo)).filter(x=>x!==null);
+const master=ctx.createGain(),compressor=ctx.createDynamicsCompressor();master.gain.value=volume/100;compressor.threshold.value=-20;compressor.ratio.value=5;master.connect(compressor);compressor.connect(ctx.destination);
+const t=ctx.currentTime;
+notes.forEach((m,i)=>{const start=t+i*.052,f=440*Math.pow(2,(m-69)/12),env=ctx.createGain();env.gain.setValueAtTime(.0001,start);env.gain.exponentialRampToValueAtTime(.15,start+.012);env.gain.exponentialRampToValueAtTime(.0001,start+3);env.connect(master);
+[1,2,3,4].forEach(h=>{const o=ctx.createOscillator(),g=ctx.createGain();o.type='sine';o.frequency.value=f*h;g.gain.value=[0,.8,.18,.075,.035][h];o.connect(g);g.connect(env);o.start(start);o.stop(start+3.1)})});
+$('status').textContent='♪ Accord joué !';
+}catch(e){$('status').textContent='Audio non disponible dans ce navigateur.'}
+}
+$('play').onclick=()=>play(false);$('play2').onclick=()=>play(true);
+$('backup').onclick=()=>{const blob=new Blob([JSON.stringify(songs,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='sauvegarde-folklore.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),30000)};
+$('restore').onclick=()=>$('restoreFile').click();
+$('restoreFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const arr=JSON.parse(await f.text());if(!Array.isArray(arr))throw Error();if(confirm('Remplacer le répertoire par cette sauvegarde ?')){songs=arr;persist();showList()}}catch(err){alert('Fichier de sauvegarde invalide.')}e.target.value=''};
+render();
+})();
+<\/script></body></html>
